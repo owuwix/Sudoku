@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Судоку</title>
+    <style>
+        * {
+            margin: 0;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            background-color: rgb(229, 178, 205);
+            text-align: center;
+        }
+        h1 {
+            padding-top: 2%;
+            margin-bottom: 30px;
+        }
+        table {
+            margin: 0 auto;
+            margin-bottom: 30px;
+            margin-top: 30px;
+        }
+
+        td {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+        }
+        td.error {
+            outline: 2px solid rgb(253, 154, 154);
+        }
+        td.correct {
+            outline: 2px solid rgb(170, 255, 170);
+        }
+
+        input {
+            border: 2px solid pink;
+            border-radius: 10px;
+            background-color: lavenderblush;
+            width: 100%;
+            height: 100%;
+        }
+        input:focus {
+            outline: 2px solid deeppink;
+        }
+        input:hover {
+            background-color: rgb(241, 227, 232);
+        }
+
+        button {
+            border: 2px solid pink;
+            border-radius: 10px;
+            background-color: lavenderblush;
+            padding: 0.5%;
+        }
+        button:hover {
+            cursor: pointer;
+            background-color: rgb(241, 227, 232);
+        }
+        button:active {
+            background-color: lavenderblush;
+        }
+    </style>
+</head>
+<body>
+    <h1>Судоку</h1>
+    <span id="resultMessage"></span>
+
+    <table id="board"></table>
+
+    <div>
+        <button onclick="displayNew()">Новое поле</button>
+        <button onclick="checkForErrorsNew()">Проверить</button>
+        <button onclick="fillNew()">Заполнить</button>
+    </div>
+
+    <script>
+        class Sudoku {
+            constructor() {
+                this.table = [];
+                this.generateEmptyTable();
+            }
+
+            generateEmptyTable() {
+                this.table = Array(9).fill(0).map(() => Array(9).fill(0));
+            }
+            displayItem() {
+                const board = document.getElementById('board');
+                board.innerHTML = '';
+                for (let y = 0; y < 9; y++) {
+                    let row = board.insertRow();
+                    for (let x = 0; x < 9; x++) {
+                        let cell = row.insertCell();
+                        let input = document.createElement('input');
+                        input.type = 'number';
+                        input.maxLength = 1;
+                        input.value = this.table[y][x] || '';
+                        input.oninput = (events) => this.process(events, y, x);
+                        if (this.table[y][x] != 0) input.disabled = true;
+                        cell.appendChild(input);
+                    }
+                }
+            }
+
+            process(events, row, column) {
+                const value = parseInt(events.generator.value);
+                if (!isNaN(value) && value >= 1 && value <= 9) {
+                    this.table[row][column] = value;
+                }
+                else {
+                    this.table[row][column] = 0;
+                    events.generator.value = '';
+                }
+            }
+            checkForErrors() {
+                let errors = {
+                    rows: [],
+                    columns: []
+                };
+                for (let i = 0; i < 9; i++) {
+                    if (!this.checkArray(this.table[i])) errors.rows.push(i);
+                    const column = this.table.map(row => row[i]);
+                    if (!this.checkArray(column)) errors.columns.push(i);
+                }
+                return errors;
+            }
+            checkArray(arrayToCheck) {
+                let filtered = arrayToCheck.filter(number => number !== 0);
+                return new Set(filtered).size === filtered.length;
+            }
+            randomFilling() {
+                this.fill();
+                const willBeCleared = 40;
+                for (let i = 0; i < willBeCleared; i++) {
+                    const row = Math.floor(Math.random() * 9);
+                    const column = Math.floor(Math.random() * 9);
+                    this.table[row][column] = 0;
+                }
+            }
+            fill() {
+                this.solveSudoku(0, 0);
+            }
+            solveSudoku(row, column) {
+                if (row === 9) return true;
+                if (column === 9) return this.solveSudoku(row + 1, 0);
+                if (this.table[row][column] !== 0) return this.solveSudoku(row, column + 1);
+                for (let number of this.shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9])) {
+                    if (this.checkAbilityToPlace(row, column, number)) {
+                        this.table[row][column] = number;
+                        if (this.solveSudoku(row, column + 1)) return true;
+                        this.table[row][column] = 0;
+                    }
+                }
+                return false;
+            }
+            checkAbilityToPlace(row, column, number) {
+                for (let i = 0; i < 9; i++) {
+                    if (this.table[row][i] === number || this.table[i][column] === number) return false;
+                }
+                const yStart = Math.floor(row / 3) * 3, xStart = Math.floor(column / 3) * 3;
+                for (let y = 0; y < 3; y++) {
+                    for (let x = 0; x < 3; x++) {
+                        if (this.table[yStart + y][xStart + x] === number) return false;
+                    }
+                }
+                return true;
+            }
+            shuffle(array) {
+                return array.sort(() => Math.random() - 0.5);
+            }
+        }
+
+        const sudoku = new Sudoku();
+
+        function displayNew() {
+            sudoku.randomFilling();
+            sudoku.displayItem();
+        }
+        function checkForErrorsNew() {
+            const board = document.getElementById('board');
+            const inputs = board.querySelectorAll('input');
+            inputs.forEach((input, index) => {
+                const row = Math.floor(index / 9);
+                const column = index % 9;
+                sudoku.table[row][column] = parseInt(input.value) || 0;
+            });
+            const errors = sudoku.checkForErrors();
+            inputs.forEach(input => input.parentElement.classList.remove('error', 'correct'));
+            errors.rows.forEach(row => {
+                for (let i = 0; i < 9; i++) board.rows[row].cells[i].classList.add('error');
+            })
+            errors.columns.forEach(column => {
+                for (let i = 0; i < 9; i++) board.column[column].cells[i].classList.add('error');
+            })
+            if (errors.rows.length === 0 && errors.columns.length === 0) {
+                inputs.forEach(input => input.parentElement.classList.add('correct'));
+                document.getElementById('resultMessage').innerText = "вы пикми!";
+            } else {
+                document.getElementById('resultMessage').innerText = "well well well...";
+            }
+        }
+        function fillNew() {
+            sudoku.fill();
+            sudoku.displayItem();
+        }
+        window.onload = () => sudoku.displayItem();
+    </script>
+</body>
+</html>
